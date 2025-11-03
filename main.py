@@ -84,7 +84,7 @@ def main():
                         continue
 
                     if text == "/start":
-                        send_message(chat_id, "Привет! 🤖 Я живу на Render 🌐")
+                        send_message(chat_id, "Привет! Я сейчас занят, отвечу как смогу!")
                     elif text == "/ping":
                         send_message(chat_id, "🏓 Pong!")
                     elif text == "/admin" and chat_id == ADMIN_ID:
