@@ -35,26 +35,33 @@ def main():
     while True:
         try:
             updates = get_updates(offset)
-            for upd in updates.get("result", []):
-                offset = upd["update_id"] + 1
-                msg = upd.get("message", {})
-                chat_id = msg.get("chat", {}).get("id")
-                text = msg.get("text", "")
+            results = updates.get("result", [])
 
-                if not chat_id or not text:
-                    continue
+            if results:
+                for upd in results:
+                    msg = upd.get("message", {})
+                    chat_id = msg.get("chat", {}).get("id")
+                    text = msg.get("text", "")
 
-                print(f"[{now()}] {chat_id}: {text}")
+                    if not chat_id or not text:
+                        continue
 
-                if text == "/start":
-                    send_message(chat_id, "Привет! 🤖 Я живу на Render 🌐")
-                elif text == "/ping":
-                    send_message(chat_id, "🏓 Pong!")
-                elif text == "/stop" and chat_id == ADMIN_ID:
-                    send_message(chat_id, "🛑 Отключаюсь по команде администратора.")
-                    return
-                else:
-                    send_message(chat_id, "Я получил твоё сообщение 😉")
+                    print(f"[{now()}] {chat_id}: {text}")
+
+                    if text == "/start":
+                        send_message(chat_id, "Привет! 🤖 Я живу на Render 🌐")
+                    elif text == "/ping":
+                        send_message(chat_id, "🏓 Pong!")
+                    elif text == "/stop" and chat_id == ADMIN_ID:
+                        send_message(chat_id, "🛑 Отключаюсь по команде администратора.")
+                        return
+                    else:
+                        send_message(chat_id, "Я получил твоё сообщение 😉")
+
+                    # ✅ Сдвигаем offset сразу после обработки
+                    offset = upd["update_id"] + 1
+
+            time.sleep(1)
 
         except Exception as e:
             print("Ошибка:", e)
