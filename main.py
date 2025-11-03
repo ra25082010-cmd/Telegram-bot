@@ -84,7 +84,7 @@ def main():
 
             # Команды
             if text == "/start":
-                send_message(chat_id, "👋 Привет! Я бот, который работает на Render 24/7.")
+                send_message(chat_id, "👋 Привет! Я сейчас занят, напиши вопрос отвечу позже!")
             elif text == "/ping":
                 send_message(chat_id, "🏓 Бот на связи!")
             elif text == "/admin" and chat_id == ADMIN_ID:
