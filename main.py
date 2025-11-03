@@ -1,6 +1,7 @@
 import os
 import time
 import requests
+from datetime import datetime
 
 TOKEN = os.getenv("8432021119:AAFDrdxUIJSoIG1uMLPXNY6UGQP11pxPIeI") or "8432021119:AAFDrdxUIJSoIG1uMLPXNY6UGQP11pxPIeI"
 ADMIN_ID = int(os.getenv("8263761630") or 8263761630)  # твой Telegram ID
@@ -8,8 +9,20 @@ ADMIN_ID = int(os.getenv("8263761630") or 8263761630)  # твой Telegram ID
 API = f"https://api.telegram.org/bot{TOKEN}"
 
 OFFSET_FILE = "offset.dat"
+LOG_FILE = "bot.log"
+
 processed_ids = set()
 users = set()
+
+
+def log_event(text, alert_admin=False):
+    """Запись лога и (опционально) уведомление админу."""
+    line = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {text}"
+    print(line)
+    with open(LOG_FILE, "a") as f:
+        f.write(line + "\n")
+    if alert_admin:
+        send_message(ADMIN_ID, f"🪵 {text}")
 
 
 def load_offset():
@@ -35,7 +48,7 @@ def get_updates(offset=None, timeout=20):
         r = requests.get(API + "/getUpdates", params=params, timeout=30)
         return r.json()
     except Exception as e:
-        print("Ошибка getUpdates:", e)
+        log_event(f"Ошибка getUpdates: {e}", alert_admin=True)
         return {}
 
 
@@ -43,11 +56,11 @@ def send_message(chat_id, text):
     try:
         requests.post(API + "/sendMessage", data={"chat_id": chat_id, "text": text})
     except Exception as e:
-        print("Ошибка sendMessage:", e)
+        log_event(f"Ошибка sendMessage: {e}", alert_admin=True)
 
 
 def main():
-    print("✅ Бот запущен и работает 24/7")
+    log_event("✅ Бот запущен и работает 24/7", alert_admin=True)
     offset = load_offset()
 
     while True:
@@ -74,7 +87,10 @@ def main():
             text = msg.get("text", "").strip()
             username = msg["from"].get("username", "без никнейма")
 
-            # Сохраняем пользователя
+            # лог всех входящих сообщений
+            log_event(f"📩 @{username} ({chat_id}): {text}")
+
+            # сохраняем пользователя
             users.add(chat_id)
 
             # ===== Админ отвечает пользователям =====
@@ -88,25 +104,27 @@ def main():
                         reply_text = parts[2]
                         send_message(target_id, f"💬 Ответ от администратора:\n{reply_text}")
                         send_message(ADMIN_ID, f"✅ Ответ отправлен пользователю {target_id}")
+                        log_event(f"✉️ Админ ответил пользователю {target_id}: {reply_text}")
                     except Exception as e:
-                        send_message(ADMIN_ID, f"⚠️ Ошибка при ответе: {e}")
+                        log_event(f"⚠️ Ошибка при ответе: {e}", alert_admin=True)
                 continue
 
             # ===== Команды =====
             if text == "/start":
-                send_message(chat_id, "👋 Привет! Я бот, который работает 24/7 на Render.")
+                send_message(chat_id, "👋 Привет! Я бот, который работает на Render 24/7.")
             elif text == "/ping":
                 send_message(chat_id, "🏓 Бот на связи!")
             elif text == "/admin" and chat_id == ADMIN_ID:
                 send_message(chat_id, "⚙️ Админ-панель:\n\n/users — список пользователей\n/reply <id> <текст> — ответить\n/stop — выключить бота")
             elif text == "/users" and chat_id == ADMIN_ID:
-                send_message(chat_id, "👥 Пользователи:\n" + "\n".join(map(str, users)))
+                user_list = "\n".join(map(str, users)) or "Нет пользователей"
+                send_message(chat_id, f"👥 Пользователи:\n{user_list}")
             elif text == "/stop" and chat_id == ADMIN_ID:
                 send_message(chat_id, "🛑 Бот остановлен.")
-                print("Бот остановлен вручную.")
+                log_event("❌ Бот остановлен вручную", alert_admin=True)
                 return
             else:
-                # если пользователь пишет
+                # пользователь пишет
                 if chat_id != ADMIN_ID:
                     send_message(ADMIN_ID, f"💬 @{username} (ID {chat_id}): {text}")
                     send_message(chat_id, "✅ Сообщение получено. Администратор скоро ответит.")
@@ -117,7 +135,6 @@ def main():
 
 
 if __name__ == "__main__":
-    # отключаем вебхук, чтобы не было дублей
     try:
         requests.get(API + "/deleteWebhook")
     except:
