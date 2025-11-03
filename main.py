@@ -6,8 +6,11 @@ from datetime import datetime
 from threading import Thread
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 
-TOKEN = os.getenv("8432021119:AAFDrdxUIJSoIG1uMLPXNY6UGQP11pxPIeI")
-ADMIN_ID = int(os.getenv("8263761630"))
+# === ВСТАВЬ СВОИ ДАННЫЕ СЮДА ===
+TOKEN = "8432021119:AAFDrdxUIJSoIG1uMLPXNY6UGQP11pxPIeI"         # <-- вставь сюда свой токен бота
+ADMIN_ID = 8263761630         # <-- сюда свой Telegram ID
+# ===============================
+
 URL = f"https://api.telegram.org/bot{TOKEN}/"
 
 def now():
@@ -43,9 +46,13 @@ def bot_loop():
                 print(f"[{now()}] {chat_id}: {text}")
 
                 if text == "/start":
-                    send_message(chat_id, "👋 Привет! Я возможно сейчас занят, оставь вопрос, отвечу позже")
+                    send_message(chat_id, "👋 Привет! Я живу на Render 🌐")
                 elif text == "/ping":
                     send_message(chat_id, "🏓 Pong!")
+                elif text == "/admin" and chat_id == ADMIN_ID:
+                    send_message(chat_id, "🔧 Панель администратора:\n\n"
+                                           "/users — показать пользователей\n"
+                                           "/stop — остановить бота")
                 elif text == "/stop" and chat_id == ADMIN_ID:
                     send_message(chat_id, "⛔ Отключаюсь по команде администратора.")
                     return
@@ -64,6 +71,6 @@ def run_server():
     server.serve_forever()
 
 if __name__ == "__main__":
-    # ✅ Запускаем сервер в фоне, бот — только в одном экземпляре
+    # ✅ Сервер работает в фоне, бот — один экземпляр
     Thread(target=run_server, daemon=True).start()
     bot_loop()
