@@ -9,7 +9,7 @@ from http.server import SimpleHTTPRequestHandler, HTTPServer
 # 🔑 Токен и ID администратора
 TOKEN = "8432021119:AAFDrdxUIJSoIG1uMLPXNY6UGQP11pxPIeI"
 ADMIN_ID = 8263761630
-URL = f"https://api.telegram.org/bot{TOKEN}/"
+curl -s "https://api.telegram.org/bot${TOKEN}/deleteWebhook"
 
 # 📂 Список пользователей
 users = set()
