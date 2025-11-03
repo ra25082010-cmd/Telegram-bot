@@ -3,18 +3,21 @@ import time
 import requests
 
 TOKEN = os.getenv("8432021119:AAFDrdxUIJSoIG1uMLPXNY6UGQP11pxPIeI") or "8432021119:AAFDrdxUIJSoIG1uMLPXNY6UGQP11pxPIeI"
-ADMIN_ID = int(os.getenv("8263761630") or 8263761630)  # замени на свой Telegram ID
+ADMIN_ID = int(os.getenv("8263761630") or 8263761630)  # твой Telegram ID
 
 API = f"https://api.telegram.org/bot{TOKEN}"
 
 OFFSET_FILE = "offset.dat"
 processed = set()
+users = set()  # список пользователей
+
 
 def load_offset():
     try:
         return int(open(OFFSET_FILE).read().strip())
     except:
         return None
+
 
 def save_offset(x):
     try:
@@ -64,9 +67,6 @@ def main():
                 continue
 
             processed.add(uid)
-            if len(processed) > 2000:
-                processed = set(list(processed)[-1000:])
-
             offset = uid + 1
             save_offset(offset)
 
@@ -76,13 +76,35 @@ def main():
 
             chat_id = msg["chat"]["id"]
             text = msg.get("text", "").strip()
+            username = msg["from"].get("username", "без никнейма")
 
+            # сохраняем пользователя
+            users.add(chat_id)
+
+            # лог для админа
+            if chat_id != ADMIN_ID:
+                send_message(
+                    ADMIN_ID,
+                    f"💬 Сообщение от @{username} (ID: {chat_id}):\n{text}"
+                )
+
+            # обработка команд
             if text == "/start":
-                send_message(chat_id, "👋 Привет! Возможно я занят, оставь свой вопрос отвечу позже!")
+                send_message(chat_id, "👋 Привет! Я бот, который работает на Render 24/7.")
             elif text == "/ping":
                 send_message(chat_id, "🏓 Бот на связи!")
             elif text == "/admin" and chat_id == ADMIN_ID:
-                send_message(chat_id, "⚙️ Админ-панель:\n\n/start — приветствие\n/ping — пинг\n/users — список пользователей\n/stop — выключить бота")
+                send_message(
+                    chat_id,
+                    f"⚙️ Админ-панель:\n\n"
+                    f"/start — приветствие\n"
+                    f"/ping — пинг\n"
+                    f"/users — список пользователей\n"
+                    f"/stop — выключить бота"
+                )
+            elif text == "/users" and chat_id == ADMIN_ID:
+                user_list = "\n".join([str(u) for u in users]) or "Пользователей пока нет"
+                send_message(chat_id, f"👥 Пользователи:\n{user_list}")
             elif text == "/stop" and chat_id == ADMIN_ID:
                 send_message(chat_id, "🛑 Бот остановлен администратором.")
                 print("Бот остановлен вручную.")
@@ -94,7 +116,7 @@ def main():
 
 
 if __name__ == "__main__":
-    # убедись, что webhook отключён
+    # удаляем вебхук (чтобы не было дублей)
     try:
         requests.get(API + "/deleteWebhook")
     except:
