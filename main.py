@@ -1,35 +1,38 @@
 import os
 import time
-import traceback
 import requests
+import traceback
 from datetime import datetime
 from threading import Thread
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 
-TOKEN = os.getenv("8432021119:AAFDrdxUIJSoIG1uMLPXNY6UGQP11pxPIeI")
-ADMIN_ID = os.getenv("8263761630")
-
+# === Настройки ===
+TOKEN = os.getenv("8432021119:AAFDrdxUIJSoIG1uMLPXNY6UGQP11pxPIeI", "8432021119:AAFDrdxUIJSoIG1uMLPXNY6UGQP11pxPIeI)  # замени токен или укажи в Render как переменную среды
+ADMIN_ID = int(os.getenv("8263761630", "8263761630"))   # замени на свой Telegram ID
 URL = f"https://api.telegram.org/bot{TOKEN}/"
 
+# === Основные функции ===
 def now():
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    return datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
 
 def get_updates(offset=None):
     params = {"timeout": 100, "offset": offset}
-    return requests.get(URL + "getUpdates", params=params).json()
+    try:
+        response = requests.get(URL + "getUpdates", params=params, timeout=120)
+        return response.json()
+    except Exception as e:
+        print(now(), "Ошибка при получении обновлений:", e)
+        return {}
 
 def send_message(chat_id, text):
-    requests.post(URL + "sendMessage", data={"chat_id": chat_id, "text": text})
-
-def run_server():
-    port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(("0.0.0.0", port), SimpleHTTPRequestHandler)
-    print(f"🌐 Server running on port {port}")
-    server.serve_forever()
+    try:
+        requests.post(URL + "sendMessage", data={"chat_id": chat_id, "text": text})
+    except Exception as e:
+        print(now(), "Ошибка при отправке сообщения:", e)
 
 def main():
-    print("🤖 Бот запущен и работает 24/7 на Render!")
-    send_message(ADMIN_ID, "✅ Бот запущен на Render!")
+    print(now(), "✅ Бот запущен и работает на Render")
+    send_message(ADMIN_ID, "🤖 Бот успешно запущен на Render и работает 24/7!")
 
     offset = None
     while True:
@@ -37,29 +40,38 @@ def main():
             updates = get_updates(offset)
             for upd in updates.get("result", []):
                 offset = upd["update_id"] + 1
-                msg = upd.get("message")
-                if not msg:
-                    continue
-
-                chat_id = msg["chat"]["id"]
+                msg = upd.get("message", {})
+                chat_id = msg.get("chat", {}).get("id")
                 text = msg.get("text", "")
 
-                print(f"[{now()}] {chat_id}: {text}")
+                if not chat_id or not text:
+                    continue
 
+                print(now(), f"{chat_id}: {text}")
+
+                # === Команды ===
                 if text == "/start":
-                    send_message(chat_id, "Привет 👋 Я сейчас занят, оставь свой вопрос, отвечу когда смогу!")
+                    send_message(chat_id, "👋 Привет! Я живу на Render и готов к работе.")
                 elif text == "/ping":
                     send_message(chat_id, "🏓 Pong!")
-                elif text == "/stop" and str(chat_id) == str(ADMIN_ID):
-                    send_message(chat_id, "⛔ Отключаюсь по команде администратора.")
+                elif text == "/stop" and chat_id == ADMIN_ID:
+                    send_message(chat_id, "🛑 Бот остановлен администратором.")
+                    print(now(), "Бот остановлен админом.")
                     return
                 else:
-                    send_message(chat_id, "Я получил твоё сообщение 🙂")
+                    send_message(chat_id, "✅ Я получил твоё сообщение!")
 
         except Exception as e:
-            print("Ошибка:", e)
+            print(now(), "Ошибка:", e)
             traceback.print_exc()
             time.sleep(5)
+
+# === Web-сервер для Render ===
+def run_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(("0.0.0.0", port), SimpleHTTPRequestHandler)
+    print(now(), f"🌐 Веб-сервер запущен на порту {port}")
+    server.serve_forever()
 
 if __name__ == "__main__":
     Thread(target=run_server).start()
