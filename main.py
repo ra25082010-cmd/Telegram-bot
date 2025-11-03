@@ -1,131 +1,103 @@
-import time
-import traceback
-import requests
-from datetime import datetime
 import os
-from threading import Thread
-from http.server import SimpleHTTPRequestHandler, HTTPServer
+import time
+import requests
 
-# 🔑 Токен и ID администратора
-TOKEN = "8432021119:AAFDrdxUIJSoIG1uMLPXNY6UGQP11pxPIeI"
-ADMIN_ID = 8263761630
-curl -s "https://api.telegram.org/bot${TOKEN}/deleteWebhook"
+TOKEN = os.getenv("8432021119:AAFDrdxUIJSoIG1uMLPXNY6UGQP11pxPIeI") or "8432021119:AAFDrdxUIJSoIG1uMLPXNY6UGQP11pxPIeI"
+ADMIN_ID = int(os.getenv("8263761630") or 8263761630)  # замени на свой Telegram ID
 
-# 📂 Список пользователей
-users = set()
+API = f"https://api.telegram.org/bot{TOKEN}"
 
-def now():
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+OFFSET_FILE = "offset.dat"
+processed = set()
 
-def get_updates(offset=None):
-    params = {"timeout": 100, "offset": offset}
+def load_offset():
     try:
-        return requests.get(URL + "getUpdates", params=params, timeout=120).json()
+        return int(open(OFFSET_FILE).read().strip())
     except:
+        return None
+
+def save_offset(x):
+    try:
+        open(OFFSET_FILE, "w").write(str(int(x)))
+    except:
+        pass
+
+
+def get_updates(offset=None, timeout=20):
+    params = {"timeout": timeout}
+    if offset:
+        params["offset"] = offset
+    try:
+        r = requests.get(API + "/getUpdates", params=params, timeout=30)
+        return r.json()
+    except Exception as e:
+        print("Ошибка при getUpdates:", e)
         return {}
 
+
 def send_message(chat_id, text, reply_markup=None):
-    data = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
+    data = {"chat_id": chat_id, "text": text}
     if reply_markup:
         data["reply_markup"] = reply_markup
-    requests.post(URL + "sendMessage", json=data)
+    try:
+        requests.post(API + "/sendMessage", data=data)
+    except Exception as e:
+        print("Ошибка при sendMessage:", e)
 
-def broadcast(text):
-    """Рассылка всем пользователям"""
-    for user_id in users:
-        try:
-            send_message(user_id, f"📢 Сообщение от администратора:\n\n{text}")
-        except:
-            pass
-
-def admin_menu():
-    """Меню администратора"""
-    return {
-        "inline_keyboard": [
-            [{"text": "👥 Статистика", "callback_data": "stats"}],
-            [{"text": "💬 Рассылка", "callback_data": "broadcast"}],
-            [{"text": "🏓 Проверка бота", "callback_data": "ping"}],
-            [{"text": "🛑 Остановить бота", "callback_data": "stop"}],
-        ]
-    }
 
 def main():
-    print("✅ Бот запущен и работает на Render!")
-    send_message(ADMIN_ID, "🚀 Бот запущен и готов к работе!")
-
-    offset = None
-    waiting_broadcast = False
+    print("✅ Бот запущен и работает 24/7")
+    offset = load_offset()
 
     while True:
-        try:
-            updates = get_updates(offset)
-            results = updates.get("result", [])
+        updates = get_updates(offset)
+        results = updates.get("result", [])
+        if not results:
+            time.sleep(1)
+            continue
 
-            if not results:
-                continue  # ⏳ Нет новых сообщений
+        for upd in results:
+            uid = upd["update_id"]
+            if uid in processed:
+                offset = uid + 1
+                save_offset(offset)
+                continue
 
-            for upd in results:
-                offset = upd["update_id"] + 1  # ✅ Обновляем offset сразу
-                msg = upd.get("message")
-                query = upd.get("callback_query")
+            processed.add(uid)
+            if len(processed) > 2000:
+                processed = set(list(processed)[-1000:])
 
-                # 💬 Сообщение
-                if msg:
-                    chat_id = msg["chat"]["id"]
-                    text = msg.get("text", "")
-                    users.add(chat_id)
+            offset = uid + 1
+            save_offset(offset)
 
-                    print(f"[{now()}] {chat_id}: {text}")
+            msg = upd.get("message")
+            if not msg:
+                continue
 
-                    if waiting_broadcast and chat_id == ADMIN_ID:
-                        broadcast(text)
-                        send_message(chat_id, "✅ Рассылка завершена.")
-                        waiting_broadcast = False
-                        continue
+            chat_id = msg["chat"]["id"]
+            text = msg.get("text", "").strip()
 
-                    if text == "/start":
-                        send_message(chat_id, "Привет! Я сейчас занят, отвечу как смогу!")
-                    elif text == "/ping":
-                        send_message(chat_id, "🏓 Pong!")
-                    elif text == "/admin" and chat_id == ADMIN_ID:
-                        send_message(chat_id, "🧰 Админ-панель:", reply_markup=admin_menu())
-                    else:
-                        send_message(chat_id, "Я получил твоё сообщение 😉")
+            if text == "/start":
+                send_message(chat_id, "👋 Привет! Возможно я занят, оставь свой вопрос отвечу позже!")
+            elif text == "/ping":
+                send_message(chat_id, "🏓 Бот на связи!")
+            elif text == "/admin" and chat_id == ADMIN_ID:
+                send_message(chat_id, "⚙️ Админ-панель:\n\n/start — приветствие\n/ping — пинг\n/users — список пользователей\n/stop — выключить бота")
+            elif text == "/stop" and chat_id == ADMIN_ID:
+                send_message(chat_id, "🛑 Бот остановлен администратором.")
+                print("Бот остановлен вручную.")
+                return
+            else:
+                send_message(chat_id, "🤖 Неизвестная команда. Используй /start или /ping")
 
-                # ⚙️ Кнопки (callback)
-                elif query:
-                    data = query["data"]
-                    chat_id = query["message"]["chat"]["id"]
+        time.sleep(0.5)
 
-                    if chat_id != ADMIN_ID:
-                        send_message(chat_id, "⛔ Только администратор может использовать меню.")
-                        continue
-
-                    if data == "stats":
-                        send_message(chat_id, f"👥 Пользователей: {len(users)}")
-                    elif data == "ping":
-                        send_message(chat_id, "🏓 Бот активен и отвечает!")
-                    elif data == "broadcast":
-                        send_message(chat_id, "💬 Введи сообщение для рассылки:")
-                        waiting_broadcast = True
-                    elif data == "stop":
-                        send_message(chat_id, "🛑 Бот остановлен администратором.")
-                        return
-
-            time.sleep(1)  # ⏱️ Маленькая пауза, чтобы не спамить API
-
-        except Exception as e:
-            print("Ошибка:", e)
-            traceback.print_exc()
-            time.sleep(5)
-
-# 🌍 Сервер для Render
-def run_server():
-    port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(("0.0.0.0", port), SimpleHTTPRequestHandler)
-    print(f"🌐 Веб-сервер запущен на порту {port}")
-    server.serve_forever()
 
 if __name__ == "__main__":
-    Thread(target=run_server).start()
+    # убедись, что webhook отключён
+    try:
+        requests.get(API + "/deleteWebhook")
+    except:
+        pass
+
     main()
