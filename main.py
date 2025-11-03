@@ -47,7 +47,7 @@ def main():
                 print(f"[{now()}] {chat_id}: {text}")
 
                 if text == "/start":
-                    send_message(chat_id, "Привет 👋 Я живу на Render!")
+                    send_message(chat_id, "Привет 👋 Я сейчас занят, оставь свой вопрос, отвечу когда смогу!")
                 elif text == "/ping":
                     send_message(chat_id, "🏓 Pong!")
                 elif text == "/stop" and str(chat_id) == str(ADMIN_ID):
