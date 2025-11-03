@@ -8,7 +8,7 @@ from http.server import SimpleHTTPRequestHandler, HTTPServer
 
 # === Настройки ===
 TOKEN = os.getenv("8432021119:AAFDrdxUIJSoIG1uMLPXNY6UGQP11pxPIeI", "8432021119:AAFDrdxUIJSoIG1uMLPXNY6UGQP11pxPIeI")  # замени токен или укажи в Render как переменную среды
-ADMIN_ID = int(os.getenv("8263761630", "8263761630"))   # замени на свой Telegram ID
+ADMIN_ID = int(os.getenv("ADMIN_ID", "8263761630"))   # замени на свой Telegram ID
 URL = f"https://api.telegram.org/bot{TOKEN}/"
 
 # === Основные функции ===
